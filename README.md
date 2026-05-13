@@ -1,141 +1,180 @@
-# Multi-Agentic LLM Orchestration
-This project implements a production-style agentic AI system that dynamically routes user queries across multiple specialized agents using a graph-based execution model. Built with LangGraph, LangChain, and LangSmith, the system demonstrates how modern LLM applications can move beyond single-prompt chatbots toward modular, tool-aware, and observable AI workflows.
+# AgentFlow
 
-At the core of the system is a Router Agent that analyzes each user query and, at runtime, decides whether to handle it via real-time web search, Retrieval-Augmented Generation (RAG), or multi-step research using external tools. A dedicated agent handles each responsibility, and the final response is synthesized by an Answer Agent, ensuring clarity and reliability.
+AgentFlow 是一个基于 LangGraph 构建的多智能体问答系统。它通过路由节点把用户问题分发给不同职责的智能体，在文档检索、联网搜索、研究分析和最终回答之间做动态切换，适合用来演示更接近生产形态的 Agent 工作流。
 
-The entire workflow is orchestrated using LangGraph’s conditional state transitions, making the system easy to extend, debug, and evaluate. A Streamlit-based UI provides an interactive interface, while LangSmith integration enables full observability, tracing, and performance analysis of agent decisions and tool usage.
+当前项目提供了一个基于 Streamlit 的交互界面，支持：
 
-Modern LLM applications often fail when a single agent is forced to handle
-retrieval, web search, reasoning, and response generation simultaneously.
+- 普通对话问答
+- 上传 PDF 后进行文档问答
+- 联网搜索新闻与网页信息
+- 查询天气与股票信息
+- 使用 LangSmith 进行链路追踪与调试
 
-The project explores a modular, **graph-based agentic architecture** where:
-- Queries are dynamically routed
-- Specialized agents handle distinct responsibilities
-- Tools are invoked only when needed
-- The entire workflow is observable and debuggable
+## 项目特点
 
-The goal was to design an *extensible, production-oriented agent system* rather than a single prompt-based chatbot!! 🎓
+- 多智能体协作：把路由、检索、搜索、研究和回答拆分为独立角色
+- 图工作流编排：基于 LangGraph 定义状态流转和条件分支
+- 文档问答能力：上传 PDF 后自动抽取内容并写入本地知识库
+- 工具增强：可按需调用网页搜索、新闻搜索、天气和股票工具
+- 可观测性：支持接入 LangSmith 查看执行轨迹和调用细节
+- 可扩展：可以继续增加新的 Agent、工具或业务流程
 
+## 工作流说明
 
-## 🧩 Agent Workflow
-![Agentic Workflow](assets/workflow.png)
+系统中的主要角色如下：
 
+1. `Router Agent`
+   负责理解用户问题，并决定后续交给哪个节点处理。
 
-## ⚙️ Workflow Overview
+2. `RAG Agent`
+   当用户问题与已上传文档相关时，使用本地知识库进行检索并返回上下文。
 
-1. **Router Agent**
-   - Understands and routes incoming queries to other agents.
-   - Decides whether RAG, web search, or research is required, else answer.
+3. `Web Agent`
+   负责处理需要联网获取信息的问题，例如最新新闻、实时信息等。
 
-2. **RAG Agent**
-   - Handles knowledge-grounded queries.
-   - Uses vector search retrieval from Pinecone vectorstore for contextual answers.
+4. `Research Agent`
+   用于执行更复杂的多步研究任务，组织中间过程并补充上下文。
 
-3. **Web Agent**
-   - Performs real-time web searches using different search tools.
-   - Useful for recent or dynamic information.
+5. `Answer Agent`
+   汇总已有上下文，输出最终回复。
 
-4. **Research Agent**
-   - Executes multi-step reasoning and prepares research report on the given topic.
-   - Uses external tools for deeper analysis
+## 技术栈
 
-5. **Answer Agent**
-   - Synthesizes final output from the available context
-   - Produces a final, coherent response
+- `LangGraph`：多智能体状态流与条件路由
+- `LangChain`：模型、工具与提示词封装
+- `LangSmith`：链路追踪、调试与评估
+- `Streamlit`：Web 交互界面
+- `OpenAI-Compatible API`：兼容 OpenAI 格式的模型接入
+- `Tavily`：网页搜索
+- `Google Serper`：新闻搜索
+- `OpenWeatherMap`：天气查询
+- `Alpha Vantage`：股票行情查询
 
+## 项目结构
 
-## ⭐ Key Features
-- **Stateful Agent workflow**: Implemented the entire workflow as a stateful graph with conditional transitions, enabling clear control flow, extensibility, and debuggability.
-- **Multi-Agent Coordination**: Coordinates multiple specialized agents, allowing agents to collaborate, pass intermediate results, and contribute to a unified final response.
-- **Tool-Augmented Reasoning with ReAct framework**: Agents can invoke external tools such as web search to enhance factual accuracy and reasoning depth.
-- **Agent-Orchestrated Adaptive RAG (Retrieval-Augmented Generation)**: Uses a Router Agent to dynamically decide whether a query requires looking into external database provided, web search, or multi-step research—avoiding unnecessary RAG calls.
-- **Separation of Concerns in LLM Systems**: Separates responsibilities such as routing, retrieval, tool usage, and response synthesis across dedicated agents, improving maintainability, scalability, and modular design.
-- **Observability with LangSmith**: Full visibility into agent decisions, tool calls, and execution paths for debugging and evaluation.
+```text
+AgentFlow/
+├─ app.py                     # Streamlit 应用入口
+├─ src/
+│  ├─ agent/                 # Agent 编排、模型工厂、提示词
+│  ├─ tools/                 # 外部工具封装
+│  ├─ pinecone/              # 本地知识库读写与检索逻辑
+│  ├─ logger/                # 日志模块
+│  └─ exception/             # 异常处理
+├─ utils/                    # 公共工具函数
+├─ data/                     # 本地知识库存储目录
+├─ assets/                   # 项目资源目录
+├─ requirements.txt
+└─ .env.example
+```
 
+说明：虽然目录名中保留了 `pinecone`，但当前代码实际使用的是本地 JSON 知识库存储，不依赖 Pinecone 在线向量数据库。
 
-## 🏗️ Tech Stack
-1. **LangGraph** – Defines the agentic workflow as a stateful graph with conditional routing and execution paths.
-2. **LangChain** – Provides abstractions for agents, tools, prompts, and LLM interactions.
-3. **LangSmith** - End-to-end tracing, debugging, and evaluation of agent decisions, tool calls, and execution paths.
-4. **LLMs** – GPT-OSS-20b, GPT-OSS-120b, Gemini-2.5-flash, GoogleGenerativeAIEmbeddings
-5. **Databases** - Pinecone, SqlLite.
-6. **Custom Tools** – Modular tool interfaces for different tasks.
-7. **Streamlit** - Interactive web-based UI for real-time user interaction with the agentic system.
+## 安装与运行
 
-<b> 📍 All open source tools and free tier services have been used to develop this application!! 🙏✨</b>
+### 1. 克隆项目
 
-
-## 🎯 Application Preview
-
-![App](assets/app_img.png)
-
-
-![LangSmith Tracing](assets/langsmith.png)
-
-## 🛠️ Installation
-
-STEP: 01 - Clone this repository
-
-```cmd
+```bash
 git clone https://github.com/<your-username>/agentflow-langgraph-orchestrator.git
 cd agentflow-langgraph-orchestrator
 ```
 
-STEP: 02 - Create and activate conda environment
+### 2. 创建虚拟环境
+
+使用 `conda`：
 
 ```bash
 conda create -p venv python=3.11.5 -y
 conda activate venv
 ```
 
-STEP: 03 - Install project requirements. <br>
+或使用 `venv`：
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+### 3. 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-STEP: 4 - Setup the `.env` file and add your API keys in the environment variables as specified in `.env.example`
+### 4. 配置环境变量
 
-STEP: 5 - Run the Application
+复制 `.env.example`，并按需填写你的密钥和模型配置。
+
+需要重点配置的变量包括：
+
+```env
+OPENAI_BASE_URL=
+OPENAI_API_KEY=
+OPENAI_MODEL=
+
+TAVILY_API_KEY=
+SERPER_API_KEY=
+WEATHER_API_KEY=
+STOCK_FINANCE_API_KEY=
+
+LANGSMITH_API_KEY=
+LANGCHAIN_PROJECT=AgentFlow
+```
+
+如果你希望为不同 Agent 指定不同模型，还可以单独配置：
+
+```env
+AGENTFLOW_MODEL=
+AGENTFLOW_ROUTER_MODEL=
+AGENTFLOW_RAG_MODEL=
+AGENTFLOW_WEB_MODEL=
+AGENTFLOW_ANSWER_MODEL=
+AGENTFLOW_RESEARCH_MODEL=
+```
+
+### 5. 启动应用
 
 ```bash
 streamlit run app.py
 ```
 
-Open your browser and open the local URL: `http://localhost:8501/`.<br>
+启动后在浏览器打开本地地址：
 
+```text
+http://localhost:8501/
+```
 
-## ⚠️ Limitations & Known Constraints
+## 使用方式
 
-This project is implemented using publicly available, free-tier APIs. As a result, this has certain limitations which are expected and acknowledged:
+### 普通问答
 
-- **API Rate Limits**  
-  Free-tier access to services such as Tavily, Google Serper, etc., and LLM Providers enforces strict request limits, which can affect throughput under frequent usage.
+直接在聊天框输入问题，系统会自动判断是直接回答、联网搜索还是进入研究流程。
 
-- **Dependency on External Services**  
-  System reliability depends on the availability and responsiveness of third-party APIs.
+### 文档问答
 
-- **Increased Latency**  
-  Multi-agent execution combined with external API calls can introduce noticeable latency, particularly when web search or research agents are invoked.
+1. 在左侧边栏上传 PDF 文件
+2. 系统会自动解析文本并写入本地知识库
+3. 上传完成后，可以围绕文档内容继续提问
 
-- **Cold Start Delays**  
-  Free-tier services may experience cold starts or slower response times, especially after periods of inactivity.
+### 历史会话
 
+左侧边栏会显示已有会话线程，可以切换查看历史对话内容。
 
-## 🔮 Future Work & Extensions
+## 已知限制
 
-The agentic architecture used in this project is designed to be extensible and scalable. Several enhancements can be explored in the futureiterations:
+- 依赖多个外部 API，未配置密钥时部分功能无法使用
+- 免费额度接口通常存在速率限制
+- 联网查询和多步研究会带来更高延迟
+- 文档检索当前基于本地文本分块与简单召回，不是完整的高性能向量数据库方案
 
-- Addition of more Agents to perform a wide variety of tasks: New agents can be added to the workflow to handle tasks such as email management, calendar scheduling, document summarization, or task automation without disrupting existing agents.
+## 后续可扩展方向
 
-- Integration with Productivity Tools: The workflow can be extended with tools such as Gmail, Google Calendar, Slack, or Notion APIs to support real-world assistant and automation use cases.
+- 增加更多垂直 Agent，例如邮件、日程、任务自动化
+- 接入更多工具平台，例如 Gmail、Slack、Notion
+- 引入更强的记忆机制，支持跨会话个性化
+- 将 Streamlit 界面替换为更适合生产部署的后端 API 架构
+- 优化本地知识库检索质量与文档处理流程
 
-- Memory & Personalization: Add short-term and long-term memory modules to enable personalized and context-aware interactions across sessions.
+## 维护说明
 
-- Production-Grade Deployment: Replace the Streamlit interface with a scalable backend and API-driven architecture suitable for multi-user environments.
-
-## Maintainer
-
-Maintained by the repository owner and contributors.
-
-
+本项目由仓库维护者与贡献者共同维护。
