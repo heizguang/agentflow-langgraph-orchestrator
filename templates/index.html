@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentFlow</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>AgentFlow</h1>
+                <button id="new-thread-btn" class="primary-btn">新建对话</button>
+            </div>
+
+            <section class="panel">
+                <h2>上传 PDF</h2>
+                <form id="upload-form">
+                    <input id="pdf-file" type="file" accept=".pdf" />
+                    <button type="submit" class="secondary-btn">上传文件</button>
+                </form>
+                <p id="upload-status" class="hint"></p>
+            </section>
+
+            <section class="panel">
+                <h2>历史会话</h2>
+                <div id="thread-list" class="thread-list"></div>
+            </section>
+        </aside>
+
+        <main class="chat-shell">
+            <header class="chat-header">
+                <h2>多智能体问答</h2>
+                <p>支持普通问答、PDF 文档问答和联网能力。</p>
+            </header>
+
+            <section id="messages" class="messages"></section>
+
+            <form id="chat-form" class="composer">
+                <textarea id="chat-input" placeholder="请输入你的问题..." rows="3"></textarea>
+                <div class="composer-actions">
+                    <span id="chat-status" class="hint"></span>
+                    <button type="submit" class="primary-btn">发送</button>
+                </div>
+            </form>
+        </main>
+    </div>
+
+    <script>
+        let currentThreadId = null;
+
+        const threadList = document.getElementById("thread-list");
+        const messagesEl = document.getElementById("messages");
+        const chatForm = document.getElementById("chat-form");
+        const chatInput = document.getElementById("chat-input");
+        const chatStatus = document.getElementById("chat-status");
+        const uploadForm = document.getElementById("upload-form");
+        const uploadStatus = document.getElementById("upload-status");
+        const pdfFile = document.getElementById("pdf-file");
+        const newThreadBtn = document.getElementById("new-thread-btn");
+
+        function renderMessages(items) {
+            messagesEl.innerHTML = "";
+            for (const item of items) {
+                const wrapper = document.createElement("div");
+                wrapper.className = `message ${item.role}`;
+
+                const bubble = document.createElement("div");
+                bubble.className = "bubble";
+                bubble.textContent = item.content;
+
+                wrapper.appendChild(bubble);
+                messagesEl.appendChild(wrapper);
+            }
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function renderThreads(threads) {
+            threadList.innerHTML = "";
+            for (const threadId of threads) {
+                const button = document.createElement("button");
+                button.className = "thread-item";
+                button.textContent = `对话-${threadId.slice(0, 18)}`;
+                button.onclick = () => loadThread(threadId);
+                threadList.appendChild(button);
+            }
+        }
+
+        async function fetchThreads() {
+            const resp = await fetch("/api/threads");
+            const data = await resp.json();
+            const threads = data.threads || [];
+            renderThreads(threads);
+            return threads;
+        }
+
+        async function createThread() {
+            const resp = await fetch("/api/threads", { method: "POST" });
+            const data = await resp.json();
+            currentThreadId = data.thread_id;
+            renderMessages([]);
+            await fetchThreads();
+        }
+
+        async function loadThread(threadId) {
+            const resp = await fetch(`/api/threads/${threadId}`);
+            const data = await resp.json();
+            currentThreadId = data.thread_id;
+            renderMessages(data.messages || []);
+        }
+
+        async function sendMessage(message) {
+            chatStatus.textContent = "正在思考...";
+            const resp = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    thread_id: currentThreadId,
+                    message,
+                }),
+            });
+            const data = await resp.json();
+            if (!resp.ok) {
+                throw new Error(data.detail || "请求失败");
+            }
+            currentThreadId = data.thread_id;
+            renderMessages(data.messages || []);
+            chatStatus.textContent = `本次耗时 ${data.elapsed}s`;
+            await fetchThreads();
+        }
+
+        async function uploadPdf(file) {
+            if (!currentThreadId) {
+                await createThread();
+            }
+
+            uploadStatus.textContent = "正在上传并处理 PDF...";
+            const form = new FormData();
+            form.append("thread_id", currentThreadId);
+            form.append("file", file);
+
+            const resp = await fetch("/api/upload", {
+                method: "POST",
+                body: form,
+            });
+            const data = await resp.json();
+            if (!resp.ok) {
+                throw new Error(data.detail || "上传失败");
+            }
+            uploadStatus.textContent = `上传完成，耗时 ${data.elapsed}s`;
+        }
+
+        chatForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            if (!currentThreadId) {
+                await createThread();
+            }
+
+            try {
+                await sendMessage(message);
+                chatInput.value = "";
+            } catch (error) {
+                chatStatus.textContent = error.message;
+            }
+        });
+
+        uploadForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const file = pdfFile.files[0];
+            if (!file) {
+                uploadStatus.textContent = "请先选择一个 PDF 文件。";
+                return;
+            }
+
+            try {
+                await uploadPdf(file);
+            } catch (error) {
+                uploadStatus.textContent = error.message;
+            }
+        });
+
+        newThreadBtn.addEventListener("click", async () => {
+            await createThread();
+            chatStatus.textContent = "已新建对话";
+        });
+
+        (async () => {
+            const threads = await fetchThreads();
+            if (threads.length > 0) {
+                await loadThread(threads[0]);
+            } else {
+                await createThread();
+            }
+        })();
+    </script>
+</body>
+</html>
