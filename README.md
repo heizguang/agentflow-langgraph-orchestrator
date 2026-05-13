@@ -63,7 +63,7 @@ AgentFlow/
 │  └─ exception/             # 异常处理
 ├─ utils/                    # 公共工具函数
 ├─ data/                     # 本地知识库存储目录
-├─ assets/                   # 项目资源目录
+├─ assets/                   # 静态资源目录
 ├─ requirements.txt
 └─ .env.example
 ```
@@ -75,7 +75,7 @@ AgentFlow/
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/<your-username>/agentflow-langgraph-orchestrator.git
+git clone https://github.com/heizguang/agentflow-langgraph-orchestrator
 cd agentflow-langgraph-orchestrator
 ```
 
