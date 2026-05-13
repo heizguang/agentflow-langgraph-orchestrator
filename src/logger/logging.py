@@ -25,7 +25,7 @@ def _build_handler(handler: pylogging.Handler) -> pylogging.Handler:
             fmt=(
                 "[%(asctime)s][%(levelname)s]"
                 "[%(filename)s:%(lineno)d:%(funcName)s]"
-                "|%(seq_id)s|%(session_id)s|thread:%(thread_id)s|%(message)s"
+                "|%(message)s"
             ),
             datefmt="%Y-%m-%d %H:%M:%S",
         )
